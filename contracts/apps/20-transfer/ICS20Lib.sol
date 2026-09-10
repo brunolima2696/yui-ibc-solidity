@@ -112,19 +112,31 @@ library ICS20Lib {
 
     /**
      * @dev unmarshalJSON unmarshals JSON bytes into PacketData.
-     * @param bz the JSON bytes to unmarshal. It must be either of the following JSON formats. It is assumed that string fields are escaped.
+     * @param bz the JSON bytes to unmarshal. It must be one of the following JSON formats. It is assumed that string fields are escaped.
      * 1. {"amount":"<uint256>","denom":"<string>","memo":"<string>","receiver":"<string>","sender":"<string>"}
      * 2. {"amount":"<uint256>","denom":"<string>","receiver":"<string>","sender":"<string>"}
+     * 3. {"denom":"<string>","amount":"<uint256>","sender":"<string>","receiver":"<string>","memo":"<string>"}
+     * 4. {"denom":"<string>","amount":"<uint256>","sender":"<string>","receiver":"<string>"}
      */
     function unmarshalJSON(bytes calldata bz) internal pure returns (PacketData memory) {
+        if (bytes32(bz[0:11]) == bytes32('{"amount":"')) {
+            return unmarshalSortedJSON(bz);
+        }
+        if (bytes32(bz[0:10]) == bytes32('{"denom":"')) {
+            return unmarshalIBCGoV10JSON(bz);
+        }
+        revert IICS20Errors.ICS20JSONUnexpectedBytes(0, bytes32('{"amount":"'), bytes32(bz[0:11]));
+    }
+
+    /**
+     * @dev unmarshalSortedJSON unmarshals the lexicographically sorted ICS-20 JSON format.
+     */
+    function unmarshalSortedJSON(bytes calldata bz) private pure returns (PacketData memory) {
         PacketData memory pd;
         uint256 pos = 0;
 
         unchecked {
             // SAFETY: `pos` never overflow because it is always less than `bz.length`.
-            if (bytes32(bz[pos:pos + 11]) != bytes32('{"amount":"')) {
-                revert IICS20Errors.ICS20JSONUnexpectedBytes(pos, bytes32('{"amount":"'), bytes32(bz[pos:pos + 11]));
-            }
             (pd.amount, pos) = parseUint256String(bz, pos + 11);
             if (bytes32(bz[pos:pos + 10]) != bytes32(',"denom":"')) {
                 revert IICS20Errors.ICS20JSONUnexpectedBytes(pos, bytes32(',"denom":"'), bytes32(bz[pos:pos + 10]));
@@ -157,12 +169,52 @@ library ICS20Lib {
     }
 
     /**
+     * @dev unmarshalIBCGoV10JSON unmarshals the field order emitted by ibc-go v10's encoding/json marshaler.
+     */
+    function unmarshalIBCGoV10JSON(bytes calldata bz) private pure returns (PacketData memory) {
+        PacketData memory pd;
+        uint256 pos = 0;
+
+        unchecked {
+            // SAFETY: `pos` never overflow because it is always less than `bz.length`.
+            (pd.denom, pos) = parseString(bz, pos + 10);
+
+            if (bytes32(bz[pos:pos + 11]) != bytes32(',"amount":"')) {
+                revert IICS20Errors.ICS20JSONUnexpectedBytes(pos, bytes32(',"amount":"'), bytes32(bz[pos:pos + 11]));
+            }
+            (pd.amount, pos) = parseUint256String(bz, pos + 11);
+
+            if (bytes32(bz[pos:pos + 11]) != bytes32(',"sender":"')) {
+                revert IICS20Errors.ICS20JSONUnexpectedBytes(pos, bytes32(',"sender":"'), bytes32(bz[pos:pos + 11]));
+            }
+            (pd.sender, pos) = parseString(bz, pos + 11);
+
+            if (bytes32(bz[pos:pos + 13]) != bytes32(',"receiver":"')) {
+                revert IICS20Errors.ICS20JSONUnexpectedBytes(pos, bytes32(',"receiver":"'), bytes32(bz[pos:pos + 13]));
+            }
+            (pd.receiver, pos) = parseString(bz, pos + 13);
+
+            if (pos < bz.length - 1) {
+                if (bytes32(bz[pos:pos + 9]) != bytes32(',"memo":"')) {
+                    revert IICS20Errors.ICS20JSONUnexpectedBytes(pos, bytes32(',"memo":"'), bytes32(bz[pos:pos + 9]));
+                }
+                (pd.memo, pos) = parseString(bz, pos + 9);
+            }
+
+            if (pos != bz.length - 1 || uint256(uint8(bz[pos])) != CHAR_CLOSING_BRACE) {
+                revert IICS20Errors.ICS20JSONClosingBraceNotFound(pos, bz[pos]);
+            }
+        }
+
+        return pd;
+    }
+
+    /**
      * @dev timeout returns a Timeout struct with the given height.
      */
     function timeout(uint64 revisionNumber, uint64 revisionHeight) internal pure returns (Timeout memory) {
         return Timeout({
-            height: Height.Data({revision_number: revisionNumber, revision_height: revisionHeight}),
-            timestampNanos: 0
+            height: Height.Data({revision_number: revisionNumber, revision_height: revisionHeight}), timestampNanos: 0
         });
     }
 

@@ -83,6 +83,32 @@ contract TestICS20Lib is Test {
         assertTrue(ICS20LibTestHelper.isEscapedJSONString("portidone/channel-0/portidtwo/channel-1/uatom"));
     }
 
+    function testUnmarshalIBCGoV10JSON() public {
+        {
+            bytes memory bz = bytes(
+                '{"denom":"axrp","amount":"1000000000000000000","sender":"ethm1sender","receiver":"0xf17f52151EbEF6C7334FAD080c5704D77216b732"}'
+            );
+            ICS20Lib.PacketData memory data = ICS20LibTestHelper.unmarshalJSON(bz);
+            assertEq(data.denom, "axrp");
+            assertEq(data.sender, "ethm1sender");
+            assertEq(data.receiver, "0xf17f52151EbEF6C7334FAD080c5704D77216b732");
+            assertEq(data.amount, 1_000_000_000_000_000_000);
+            assertEq(data.memo, "");
+        }
+
+        {
+            bytes memory bz = bytes(
+                '{"denom":"axrp","amount":"100","sender":"ethm1sender","receiver":"0xf17f52151EbEF6C7334FAD080c5704D77216b732","memo":"memo"}'
+            );
+            ICS20Lib.PacketData memory data = ICS20LibTestHelper.unmarshalJSON(bz);
+            assertEq(data.denom, "axrp");
+            assertEq(data.sender, "ethm1sender");
+            assertEq(data.receiver, "0xf17f52151EbEF6C7334FAD080c5704D77216b732");
+            assertEq(data.amount, 100);
+            assertEq(data.memo, "memo");
+        }
+    }
+
     function testParseAmount(uint256 amount) public {
         ICS20Lib.PacketData memory data =
             ICS20Lib.PacketData({denom: "", sender: "", receiver: "", amount: amount, memo: ""});

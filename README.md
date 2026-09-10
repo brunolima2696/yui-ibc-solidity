@@ -2,6 +2,8 @@
   <h1>ibc-solidity</h1>
 </div>
 
+> Fork de [hyperledger-labs/yui-ibc-solidity](https://github.com/hyperledger-labs/yui-ibc-solidity), mantido para suportar a interoperabilidade ICS-20 com chains baseadas em versões recentes do `ibc-go`.
+
 ![banner](docs/img/IBC-solidity-cover.svg)
 
 <div align="center">
@@ -24,6 +26,18 @@
 This is available not only for Ethereum and Hyperledger Besu, but also for Polygon PoS and other EVM-compatible chains.
 
 DISCLAIMER: This project is still under development and has not been audited.
+
+## Alterações deste fork
+
+O parser de pacotes ICS-20 passou a aceitar também a serialização JSON utilizada pelo `ibc-go` v10, cuja ordem de campos é:
+
+```json
+{"denom":"...","amount":"...","sender":"...","receiver":"..."}
+```
+
+O campo opcional `memo` também é suportado. O formato legado, iniciado por `amount`, permanece compatível.
+
+A alteração foi validada por testes unitários do parser e por transferências IBC bidirecionais entre uma XRPL EVM baseada em `ibc-go` v10.4 e uma chain Indy-Besu, incluindo o recebimento dos pacotes e seus acknowledgements.
 
 ## Features
 
